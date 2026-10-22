@@ -1,7 +1,8 @@
 fastapi
 uvicorn[standard]
-psycopg[binary]
+psycopg[binary,pool]
 alembic
 sqlalchemy
 python-dotenv
 pytest
+httpx

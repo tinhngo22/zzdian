@@ -39,8 +39,7 @@ STATEMENTS = [
         pinyin           TEXT[] NOT NULL DEFAULT '{}',
         meaning_en       TEXT,
         stroke_count     SMALLINT,
-        main_radical_id  SMALLINT REFERENCES radicals(id),
-        frequency_rank   INT
+        main_radical_id  SMALLINT REFERENCES radicals(id)
     )
     """,
     # --- components of a character, in order ---
@@ -64,9 +63,6 @@ STATEMENTS = [
         pinyin_numbered  TEXT NOT NULL,              -- as in CEDICT: ni3 hao3
         pinyin_plain     TEXT NOT NULL,              -- for search: ni hao
         definitions      JSONB NOT NULL DEFAULT '[]',
-        hsk_level        SMALLINT,
-        frequency_rank   INT,
-        is_custom        BOOLEAN NOT NULL DEFAULT FALSE,
         created_by       UUID,
         CONSTRAINT uq_word_entry UNIQUE (traditional, simplified, pinyin_numbered)
     )
