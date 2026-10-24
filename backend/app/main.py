@@ -4,7 +4,7 @@ from fastapi import Depends, FastAPI
 
 from app.db import pool
 from app.deps import get_db
-from app.routers import dictionary, auth
+from app.routers import sets, dictionary, auth, explore
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -18,6 +18,8 @@ app = FastAPI(title="Hanzi App", lifespan=lifespan)
 
 app.include_router(dictionary.router)
 app.include_router(auth.router)
+app.include_router(sets.router)
+app.include_router(explore.router)
 
 @app.get("/health")
 def health():
