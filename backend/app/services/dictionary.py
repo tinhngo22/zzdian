@@ -21,6 +21,25 @@ def fetch_radical(conn, radical_id: int) -> dict | None:
     )
 
 
+def fetch_words_by_simplified(conn, simplified: str, limit: int = 20) -> list[dict]:
+    """Dictionary entries written exactly `simplified` (好 has hǎo and hào, for example).
+
+    Common-word entries come before proper nouns (CEDICT capitalizes their pinyin,
+    as in 王 Wáng the surname), then in dictionary order.
+    """
+    return fetch_all(
+        conn,
+        """
+        SELECT id, simplified, traditional, pinyin, definitions
+        FROM words
+        WHERE simplified = %s
+        ORDER BY (pinyin_numbered <> lower(pinyin_numbered)), id
+        LIMIT %s
+        """,
+        (simplified, limit),
+    )
+
+
 def fetch_components(conn, character_id: int) -> list[dict]:
     """The components of a character, in order (a component can repeat, as in 林)."""
     return fetch_all(

@@ -3,7 +3,9 @@
 Tables (see migrations 364375fc78f7 and 609bb6b11ba5):
   flashcard_sets  (id, user_id, name, created_at)
   flashcard_words (id, user_id, set_id, added_at, simplified, traditional, pinyin, definitions)
-  explore         (user_id, radical_id, character_id, word_id)  -- one row per character of a word
+  explore         (user_id, component_id, character_id, word_id)
+                  -- one row per (character, component) of a word; every character is
+                  -- also its own component, so atomic characters (人) still get a row
 
 Deleting a word (or its set) also deletes its `explore` rows: the foreign keys are
 ON DELETE CASCADE all the way down.
@@ -132,20 +134,55 @@ def add_word(
     return word
 
 
+def add_words(conn, user_id: UUID, set_id: UUID, words: list[dict]) -> list[dict]:
+    """Insert several words, in the given order, each linked in `explore` like add_word.
+
+    `words` items have keys simplified, traditional, pinyin, definitions. All rows share
+    the transaction's now(), so added_at is offset by a microsecond per row: list_words
+    orders by added_at, and the import order must survive.
+    """
+    if not words:
+        return []
+    columns = ("simplified", "traditional", "pinyin", "definitions")
+    rows = fetch_all(
+        conn,
+        """
+        INSERT INTO flashcard_words
+            (user_id, set_id, added_at, simplified, traditional, pinyin, definitions)
+        SELECT %s, %s, now() + w.ord * interval '1 microsecond',
+               w.simplified, w.traditional, w.pinyin, w.definitions
+        FROM unnest(%s::text[], %s::text[], %s::text[], %s::text[]) WITH ORDINALITY
+             AS w(simplified, traditional, pinyin, definitions, ord)
+        RETURNING id, simplified, traditional, pinyin, definitions, added_at
+        """,
+        (user_id, set_id, *([w.get(c) for w in words] for c in columns)),
+    )
+    rows.sort(key=lambda r: r["added_at"])  # RETURNING order is not guaranteed
+    for row in rows:
+        link_word_characters(conn, user_id, row["id"], row["simplified"])
+    return rows
+
+
 def link_word_characters(conn, user_id: UUID, word_id: UUID, simplified: str) -> None:
-    """Fill `explore` with one row per distinct character of `simplified`.
+    """Fill `explore` with one row per (distinct character of `simplified`, component).
 
     characters.id is the Unicode code point, so we look characters up by ord(ch);
     anything not in `characters` (letters, punctuation, unknown hanzi) is skipped
-    by the join, and so are characters with no main radical (radical_id is NOT NULL).
+    by the join. Components come from character_components plus the character itself;
+    UNION drops repeats (林 = 木 + 木 gives one 木 row).
     """
     ids = sorted({ord(ch) for ch in simplified})
     conn.execute(
         """
-        INSERT INTO explore (user_id, radical_id, character_id, word_id)
-        SELECT %s, c.main_radical_id, c.id, %s
+        INSERT INTO explore (user_id, component_id, character_id, word_id)
+        SELECT %s, comp.component_id, c.id, %s
         FROM characters c
-        WHERE c.id = ANY(%s) AND c.main_radical_id IS NOT NULL
+        CROSS JOIN LATERAL (
+            SELECT c.id AS component_id
+            UNION
+            SELECT cc.component_id FROM character_components cc WHERE cc.character_id = c.id
+        ) comp
+        WHERE c.id = ANY(%s)
         """,
         (user_id, word_id, ids),
     )

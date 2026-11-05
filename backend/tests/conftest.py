@@ -66,11 +66,16 @@ def missing_han_id(conn):
 
 
 @pytest.fixture
-def no_radical_id(conn):
-    """A character that exists but has no main radical."""
+def no_components_id(conn):
+    """A Han character that exists but has no rows in character_components."""
     row = conn.execute(
-        "SELECT id FROM characters WHERE main_radical_id IS NULL ORDER BY id LIMIT 1"
+        """
+        SELECT c.id FROM characters c
+        WHERE c.id BETWEEN 19968 AND 40959
+          AND NOT EXISTS (SELECT 1 FROM character_components cc WHERE cc.character_id = c.id)
+        ORDER BY c.id LIMIT 1
+        """
     ).fetchone()
     if row is None:
-        pytest.skip("every character has a main radical")
+        pytest.skip("every character has components")
     return row[0]

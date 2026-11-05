@@ -46,3 +46,35 @@ def test_fetch_components_can_repeat_a_component(conn):
 
 def test_fetch_components_of_an_unknown_id_is_empty(conn):
     assert D.fetch_components(conn, 999_999_999) == []
+
+
+# ---------- fetch_words_by_simplified ----------
+
+def test_fetch_words_by_simplified_returns_entries(conn):
+    entries = D.fetch_words_by_simplified(conn, "你好")
+    assert entries
+    assert all(e["simplified"] == "你好" for e in entries)
+    assert entries[0]["pinyin"] == "nǐ hǎo"
+    assert isinstance(entries[0]["definitions"], list)
+    assert set(entries[0]) == {"id", "simplified", "traditional", "pinyin", "definitions"}
+
+
+def test_fetch_words_by_simplified_lists_every_reading(conn):
+    pinyins = [e["pinyin"] for e in D.fetch_words_by_simplified(conn, "好")]
+    assert "hǎo" in pinyins
+    assert "hào" in pinyins
+
+
+def test_fetch_words_by_simplified_puts_proper_nouns_last(conn):
+    entries = D.fetch_words_by_simplified(conn, "王")  # wáng king, Wáng surname
+    capitalized = [e["pinyin"][:1].isupper() for e in entries]
+    assert capitalized == sorted(capitalized)
+    assert not capitalized[0]
+
+
+def test_fetch_words_by_simplified_respects_limit(conn):
+    assert len(D.fetch_words_by_simplified(conn, "好", limit=1)) == 1
+
+
+def test_fetch_words_by_simplified_unknown_is_empty(conn):
+    assert D.fetch_words_by_simplified(conn, "不是一个词语xyz") == []

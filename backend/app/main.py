@@ -1,10 +1,21 @@
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.db import pool
 from app.deps import get_db
 from app.routers import sets, dictionary, auth, explore
+
+# Comma-separated browser origins allowed to call the API (the Vite dev server by default).
+CORS_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get(
+        "CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
+    ).split(",")
+    if origin.strip()
+]
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -14,6 +25,14 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Hanzi App", lifespan=lifespan)
+
+# Auth is a bearer token in the Authorization header, not a cookie, so no credentials.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS,
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
+)
 
 
 app.include_router(dictionary.router)

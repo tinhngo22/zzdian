@@ -30,6 +30,28 @@ CACHE_HEADER = "public, max-age=3600"
 #     return word
 
 
+@router.get("/words")
+def lookup_words(
+    response: Response,
+    simplified: str = Query(..., min_length=1, max_length=50),
+    limit: int = Query(20, ge=1, le=50),
+    conn=Depends(get_db),
+):
+    """Reference dictionary entries for an exact simplified word; `entries` is empty
+    when the word is not in the dictionary.
+
+    Example: GET /words?simplified=好
+    """
+    simplified = simplified.strip()
+    entries = (
+        dictionary_service.fetch_words_by_simplified(conn, simplified, limit)
+        if simplified
+        else []
+    )
+    response.headers["Cache-Control"] = CACHE_HEADER
+    return {"simplified": simplified, "entries": entries}
+
+
 def _character_detail(conn, character_id: int) -> dict | None:
     char = dictionary_service.fetch_character(conn, character_id)
     if char is None:

@@ -29,18 +29,18 @@ STATEMENTS = [
     """
     CREATE TABLE explore (
         user_id       UUID     NOT NULL,
-        radical_id    SMALLINT NOT NULL REFERENCES radicals(id),
+        component_id  INT      NOT NULL REFERENCES characters(id),
         character_id  INT      NOT NULL REFERENCES characters(id),
         word_id       UUID     NOT NULL,
-        PRIMARY KEY (word_id, character_id, radical_id),
+        PRIMARY KEY (word_id, character_id, component_id),
         FOREIGN KEY (word_id, user_id)
             REFERENCES flashcard_words (id, user_id) ON DELETE CASCADE
     )
     """,
     # "words with this character":  WHERE user_id = ? AND character_id = ?
     "CREATE INDEX idx_explore_user_character_word ON explore (user_id, character_id, word_id)",
-    # "words with this radical":    WHERE user_id = ? AND radical_id = ?
-    "CREATE INDEX idx_explore_user_radical_word ON explore (user_id, radical_id, word_id)",
+    # "words with this component":    WHERE user_id = ? AND component_id = ?
+    "CREATE INDEX idx_explore_user_radical_word ON explore (user_id, component_id, word_id)",
 ]
 
 

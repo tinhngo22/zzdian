@@ -6,11 +6,6 @@ import pytest
 from app.db import fetch_all
 from app.services import sets as S
 
-HAO = ord("好")  # main radical 38 (女)
-MA = ord("妈")   # main radical 38 (女)
-NI = ord("你")   # main radical 9 (人)
-
-
 def add(conn, user_id, set_id, simplified, traditional=None, pinyin=None, definitions=None):
     return S.add_word(conn, user_id, set_id, simplified, traditional, pinyin, definitions)
 
@@ -18,10 +13,15 @@ def add(conn, user_id, set_id, simplified, traditional=None, pinyin=None, defini
 def explore_rows(conn, word_id):
     return fetch_all(
         conn,
-        "SELECT user_id, radical_id, character_id, word_id FROM explore "
-        "WHERE word_id = %s ORDER BY character_id",
+        "SELECT user_id, component_id, character_id, word_id FROM explore "
+        "WHERE word_id = %s ORDER BY character_id, component_id",
         (word_id,),
     )
+
+
+def pairs(rows):
+    """(character, component) glyph pairs, for readable assertions."""
+    return {(chr(r["character_id"]), chr(r["component_id"])) for r in rows}
 
 
 def count(conn, table, **where):
@@ -127,17 +127,34 @@ def test_add_word_optional_fields_can_be_none(conn, user_id, set_id):
     assert (word["traditional"], word["pinyin"], word["definitions"]) == (None, None, None)
 
 
-def test_add_word_links_each_character_with_its_main_radical(conn, user_id, set_id):
+def test_add_word_links_each_character_with_itself_and_its_components(conn, user_id, set_id):
     word = add(conn, user_id, set_id, "你好")
     rows = explore_rows(conn, word["id"])
-    assert {(r["character_id"], r["radical_id"]) for r in rows} == {(NI, 9), (HAO, 38)}
-    assert all(r["user_id"] == user_id for r in rows)
+    assert pairs(rows) == {
+        ("你", "你"), ("你", "亻"), ("你", "尔"),
+        ("好", "好"), ("好", "女"), ("好", "子"),
+    }
+    assert all(r["user_id"] == user_id and r["word_id"] == word["id"] for r in rows)
 
 
 def test_add_word_links_a_repeated_character_once(conn, user_id, set_id):
     word = add(conn, user_id, set_id, "妈妈")
+    assert pairs(explore_rows(conn, word["id"])) == {("妈", "妈"), ("妈", "女"), ("妈", "马")}
+    assert len(explore_rows(conn, word["id"])) == 3
+
+
+def test_add_word_links_a_repeated_component_once(conn, user_id, set_id):
+    word = add(conn, user_id, set_id, "林")  # 木 + 木
+    assert pairs(explore_rows(conn, word["id"])) == {("林", "林"), ("林", "木")}
+    assert len(explore_rows(conn, word["id"])) == 2
+
+
+def test_add_word_links_a_character_without_components_to_itself(conn, user_id, set_id, no_components_id):
+    word = add(conn, user_id, set_id, chr(no_components_id))
     rows = explore_rows(conn, word["id"])
-    assert [(r["character_id"], r["radical_id"]) for r in rows] == [(MA, 38)]
+    assert [(r["character_id"], r["component_id"]) for r in rows] == [
+        (no_components_id, no_components_id)
+    ]
 
 
 def test_add_word_skips_non_hanzi_and_unknown_characters(conn, user_id, set_id, missing_han_id):
@@ -145,16 +162,13 @@ def test_add_word_skips_non_hanzi_and_unknown_characters(conn, user_id, set_id, 
     assert explore_rows(conn, word["id"]) == []
 
 
-def test_add_word_skips_characters_without_a_main_radical(conn, user_id, set_id, no_radical_id):
-    word = add(conn, user_id, set_id, "好" + chr(no_radical_id))
-    assert [r["character_id"] for r in explore_rows(conn, word["id"])] == [HAO]
-
-
 def test_add_word_twice_creates_two_independent_words(conn, user_id, set_id):
     a = add(conn, user_id, set_id, "好人")
     b = add(conn, user_id, set_id, "好人")
     assert a["id"] != b["id"]
-    assert len(explore_rows(conn, a["id"])) == 2 and len(explore_rows(conn, b["id"])) == 2
+    assert pairs(explore_rows(conn, a["id"])) == pairs(explore_rows(conn, b["id"])) == {
+        ("好", "好"), ("好", "女"), ("好", "子"), ("人", "人"),
+    }
 
 
 def test_link_word_characters_rejects_a_user_that_does_not_own_the_word(conn, user_id, other_user_id, set_id):
@@ -162,6 +176,43 @@ def test_link_word_characters_rejects_a_user_that_does_not_own_the_word(conn, us
     with pytest.raises(psycopg.errors.ForeignKeyViolation):
         with conn.transaction():  # savepoint, so the test connection stays usable
             S.link_word_characters(conn, other_user_id, word["id"], "你")
+
+
+# ---------- add_words ----------
+
+def test_add_words_stores_them_in_order_with_optional_fields(conn, user_id, set_id):
+    words = [
+        {"simplified": "三", "traditional": None, "pinyin": "sān", "definitions": "three"},
+        {"simplified": "一", "traditional": None, "pinyin": None, "definitions": None},
+        {"simplified": "说话", "traditional": "說話", "pinyin": "shuō huà", "definitions": "to speak\nto talk"},
+    ]
+    rows = S.add_words(conn, user_id, set_id, words)
+
+    assert [r["simplified"] for r in rows] == ["三", "一", "说话"]
+    assert set(rows[0]) == {"id", "simplified", "traditional", "pinyin", "definitions", "added_at"}
+    assert (rows[2]["traditional"], rows[2]["pinyin"], rows[2]["definitions"]) == (
+        "說話", "shuō huà", "to speak\nto talk",
+    )
+    assert (rows[1]["pinyin"], rows[1]["definitions"]) == (None, None)
+    listed = S.list_words(conn, user_id, set_id, limit=10, offset=0)
+    assert [r["simplified"] for r in listed] == ["三", "一", "说话"]  # import order, not text order
+
+
+def test_add_words_links_each_word_in_explore(conn, user_id, set_id):
+    a, b = S.add_words(
+        conn, user_id, set_id,
+        [{"simplified": "你好"}, {"simplified": "林"}],
+    )
+    assert pairs(explore_rows(conn, a["id"])) == {
+        ("你", "你"), ("你", "亻"), ("你", "尔"),
+        ("好", "好"), ("好", "女"), ("好", "子"),
+    }
+    assert pairs(explore_rows(conn, b["id"])) == {("林", "林"), ("林", "木")}
+
+
+def test_add_words_empty_list_does_nothing(conn, user_id, set_id):
+    assert S.add_words(conn, user_id, set_id, []) == []
+    assert S.count_words(conn, user_id, set_id) == 0
 
 
 # ---------- count_words / list_words ----------
@@ -213,7 +264,9 @@ def test_remove_word_deletes_it_and_its_explore_rows(conn, user_id, set_id):
     assert count(conn, "flashcard_words", id=gone["id"]) == 0
     assert explore_rows(conn, gone["id"]) == []
     assert count(conn, "flashcard_words", id=keep["id"]) == 1   # other words untouched
-    assert len(explore_rows(conn, keep["id"])) == 2
+    assert pairs(explore_rows(conn, keep["id"])) == {
+        ("好", "好"), ("好", "女"), ("好", "子"), ("人", "人"),
+    }
 
 
 def test_remove_word_returns_false_when_it_is_not_in_that_users_set(conn, user_id, other_user_id, set_id):

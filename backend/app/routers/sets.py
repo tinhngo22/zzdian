@@ -2,7 +2,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints
 
 from app.deps import get_current_user_id, get_db
 from app.services import sets as sets_service
@@ -22,6 +22,13 @@ class AddWordIn(BaseModel):
     traditional: str | None = None
     pinyin: str | None = None
     definitions: str | None = None
+
+
+MAX_BULK_WORDS = 500
+
+
+class AddWordsIn(BaseModel):
+    words: list[AddWordIn] = Field(..., min_length=1, max_length=MAX_BULK_WORDS)
 
 
 def require_set(conn, set_id: UUID, user_id: UUID) -> None:
@@ -110,6 +117,24 @@ def add_word(
     )
     conn.commit()
     return row
+
+
+@router.post("/{set_id}/words/bulk", status_code=201)
+def add_words(
+    set_id: UUID,
+    body: AddWordsIn,
+    conn=Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id),
+):
+    """Save up to 500 words at once, in order. All or nothing: one invalid word (e.g.
+    empty `simplified`) rejects the whole request with 422 and nothing is saved.
+    """
+    require_set(conn, set_id, user_id)
+    items = sets_service.add_words(
+        conn, user_id, set_id, [word.model_dump() for word in body.words]
+    )
+    conn.commit()
+    return {"items": items}
 
 
 @router.delete("/{set_id}/words/{word_id}", status_code=204)
