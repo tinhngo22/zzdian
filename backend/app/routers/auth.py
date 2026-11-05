@@ -1,19 +1,18 @@
 from uuid import UUID
 
-import psycopg
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr
 
 from app.db import fetch_one
 from app.deps import get_current_user_id, get_db
-from app.security import create_access_token, hash_password, verify_password
+from app.security import create_access_token, verify_password
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-class RegisterIn(BaseModel):
-    email: EmailStr
-    password: str = Field(min_length=8, max_length=128)
+# class RegisterIn(BaseModel):
+#     email: EmailStr
+#     password: str = Field(min_length=8, max_length=128)
 
 
 class LoginIn(BaseModel):
@@ -21,19 +20,19 @@ class LoginIn(BaseModel):
     password: str
 
 
-@router.post("/register", status_code=201)
-def register(body: RegisterIn, conn=Depends(get_db)):
-    email = body.email.lower()
-    try:
-        with conn.transaction():
-            row = conn.execute(
-                "INSERT INTO users (email, password_hash) VALUES (%s, %s) RETURNING id",
-                (email, hash_password(body.password)),
-            ).fetchone()
-    except psycopg.errors.UniqueViolation:
-        raise HTTPException(status_code=409, detail="Email already registered")
-    conn.commit()
-    return {"id": str(row[0]), "email": email}
+# @router.post("/register", status_code=201)
+# def register(body: RegisterIn, conn=Depends(get_db)):
+#     email = body.email.lower()
+#     try:
+#         with conn.transaction():
+#             row = conn.execute(
+#                 "INSERT INTO users (email, password_hash) VALUES (%s, %s) RETURNING id",
+#                 (email, hash_password(body.password)),
+#             ).fetchone()
+#     except psycopg.errors.UniqueViolation:
+#         raise HTTPException(status_code=409, detail="Email already registered")
+#     conn.commit()
+#     return {"id": str(row[0]), "email": email}
 
 
 @router.post("/login")
