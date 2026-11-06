@@ -104,7 +104,9 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     if (response.status === 401 && auth) onUnauthorized?.();
     throw new ApiError(
       response.status,
-      messageFromBody(data, `Request failed (${response.status})`),
+      messageFromBody(data, response.status === 429
+        ? "Too many requests. Wait a minute and try again."
+        : `Request failed (${response.status})`),
     );
   }
   return data as T;

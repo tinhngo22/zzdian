@@ -122,6 +122,16 @@ def test_cross_user_access_and_bulk_atomicity(api):
     assert c.get(f"/sets/{sid}/words", headers=h).json()["total"] == 2
 
 
+@pytest.mark.parametrize("field,length", [("simplified", 101), ("traditional", 101), ("pinyin", 501), ("definitions", 10001)])
+def test_word_limits_reject_without_inserting(api, field, length):
+    c, _, _, _, h, _ = api
+    sid = c.post("/sets", headers=h, json={"name": "limits"}).json()["id"]
+    body = {"simplified": "test", field: "x" * length}
+    assert c.post(f"/sets/{sid}/words", headers=h, json=body).status_code == 422
+    assert c.post(f"/sets/{sid}/words/bulk", headers=h, json={"words": [body]}).status_code == 422
+    assert c.get(f"/sets/{sid}/words", headers=h).json()["total"] == 0
+
+
 def test_password_limit(api):
     c, _, _, email, _, _ = api
     assert c.post("/auth/login", json={"email": email, "password": "x" * 129}).status_code == 422

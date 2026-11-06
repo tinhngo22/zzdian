@@ -185,6 +185,7 @@ export function AddWordDialog({ setId, onClose }: { setId: string; onClose: () =
           <TextInput
             ref={simplifiedRef}
             label="Chinese word (simplified)"
+            maxLength={100}
             lang="zh-Hans"
             className="font-cjk text-lg"
             value={fields.simplified}
@@ -214,6 +215,7 @@ export function AddWordDialog({ setId, onClose }: { setId: string; onClose: () =
         <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
           <TextInput
             label="Traditional"
+            maxLength={100}
             optional
             lang="zh-Hant"
             className="font-cjk"
@@ -222,6 +224,7 @@ export function AddWordDialog({ setId, onClose }: { setId: string; onClose: () =
           />
           <TextInput
             label="Pinyin"
+            maxLength={500}
             optional
             placeholder="nǐ hǎo"
             value={fields.pinyin}
@@ -230,6 +233,7 @@ export function AddWordDialog({ setId, onClose }: { setId: string; onClose: () =
         </div>
         <TextArea
           label="Definitions"
+          maxLength={10000}
           optional
           rows={4}
           placeholder={"hello\nhi"}

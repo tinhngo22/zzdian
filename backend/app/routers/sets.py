@@ -10,7 +10,7 @@ from app.services import sets as sets_service
 router = APIRouter(prefix="/sets", tags=["sets"])
 
 SetName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
-Required = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+Required = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
 
 
 class SetIn(BaseModel):
@@ -19,9 +19,9 @@ class SetIn(BaseModel):
 
 class AddWordIn(BaseModel):
     simplified: Required
-    traditional: str | None = None
-    pinyin: str | None = None
-    definitions: str | None = None
+    traditional: str | None = Field(default=None, max_length=100)
+    pinyin: str | None = Field(default=None, max_length=500)
+    definitions: str | None = Field(default=None, max_length=10000)
 
 
 MAX_BULK_WORDS = 500

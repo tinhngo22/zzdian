@@ -62,6 +62,14 @@ export function parseImport(text: string, { fieldSeparator, rowSeparator, layout
       parsed.push({ row: index + 1, error: "Missing the Chinese word", raw: raw.trim() });
       return;
     }
+    const limits: Record<ImportField, number> = {
+      simplified: 100, traditional: 100, pinyin: 500, definitions: 10000,
+    };
+    const oversized = fields.find((field) => Array.from(word[field] ?? "").length > limits[field]);
+    if (oversized) {
+      parsed.push({ row: index + 1, error: `${FIELD_LABELS[oversized]} exceeds ${limits[oversized]} characters`, raw: raw.trim() });
+      return;
+    }
     parsed.push({ row: index + 1, word: word as NewSetWord });
   });
   return parsed;

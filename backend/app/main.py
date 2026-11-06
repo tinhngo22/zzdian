@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.db import pool
 from app.deps import get_db
+from app.middleware import RequestSizeLimitMiddleware
 from app.routers import sets, dictionary, auth, explore
 
 # Comma-separated browser origins allowed to call the API (the Vite dev server by default).
@@ -25,6 +26,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Hanzi App", lifespan=lifespan)
+app.add_middleware(RequestSizeLimitMiddleware)
 
 # Auth is a bearer token in the Authorization header, not a cookie, so no credentials.
 app.add_middleware(
@@ -49,4 +51,3 @@ def health():
 def health_db(conn=Depends(get_db)):
     row = conn.execute("SELECT 1").fetchone()
     return {"db": row[0]}
-
