@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 from app.db import fetch_one
 from app.deps import get_current_user_id, get_db
@@ -17,7 +17,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 class LoginIn(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(min_length=1, max_length=128)
 
 
 # @router.post("/register", status_code=201)
@@ -38,13 +38,13 @@ class LoginIn(BaseModel):
 @router.post("/login")
 def login(body: LoginIn, conn=Depends(get_db)):
     row = conn.execute(
-        "SELECT id, password_hash FROM users WHERE lower(email) = %s",
+        "SELECT id, password_hash, token_version FROM users WHERE lower(email) = %s",
         (body.email.lower(),),
     ).fetchone()
     
     if row is None or not verify_password(row[1], body.password):
         raise HTTPException(status_code=401, detail="Invalid email or password")
-    return {"access_token": create_access_token(str(row[0])), "token_type": "bearer"}
+    return {"access_token": create_access_token(str(row[0]), row[2]), "token_type": "bearer"}
 
 
 @router.get("/me")

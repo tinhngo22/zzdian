@@ -59,7 +59,8 @@ def main() -> None:
         with get_conn() as conn:
             if args.reset:
                 row = conn.execute(
-                    "UPDATE users SET password_hash = %s WHERE lower(email) = %s RETURNING id",
+                    "UPDATE users SET password_hash = %s, token_version = token_version + 1 "
+                    "WHERE lower(email) = %s RETURNING id",
                     (password_hash, email),
                 ).fetchone()
                 if row is None:

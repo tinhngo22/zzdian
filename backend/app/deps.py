@@ -8,7 +8,7 @@ from uuid import UUID
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from app.security import decode_access_token
+from app.security import decode_access_claims
 
 
 def get_db() -> Iterator[psycopg.Connection]:
@@ -22,6 +22,7 @@ bearer_scheme = HTTPBearer()
 
 def get_current_user_id(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+    conn=Depends(get_db),
 ) -> UUID:
     """Read 'Authorization: Bearer <token>' and return the user's id.
     """
@@ -30,10 +31,14 @@ def get_current_user_id(
         detail="Invalid or expired token",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    user_id = decode_access_token(credentials.credentials)
-    if user_id is None:
+    claims = decode_access_claims(credentials.credentials)
+    if claims is None:
         raise unauthorized
     try:
-        return UUID(user_id)
-    except ValueError:
+        user_id = UUID(claims["sub"])
+    except (ValueError, TypeError):
         raise unauthorized
+    row = conn.execute("SELECT token_version FROM users WHERE id = %s", (user_id,)).fetchone()
+    if row is None or row[0] != claims["ver"]:
+        raise unauthorized
+    return user_id
