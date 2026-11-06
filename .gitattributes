@@ -1,0 +1,5 @@
+# Keep deployment shell/config files usable when checked out on Windows.
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.conf text eol=lf
+Caddyfile text eol=lf

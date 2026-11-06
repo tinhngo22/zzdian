@@ -20,9 +20,11 @@ CORS_ORIGINS = [
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    pool.open()      
-    yield
-    pool.close()  
+    try:
+        pool.open(wait=True, timeout=10)
+        yield
+    finally:
+        pool.close()
 
 
 app = FastAPI(title="Hanzi App", lifespan=lifespan)
@@ -51,3 +53,4 @@ def health():
 def health_db(conn=Depends(get_db)):
     row = conn.execute("SELECT 1").fetchone()
     return {"db": row[0]}
+

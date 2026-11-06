@@ -1,0 +1,7 @@
+{$APP_DOMAIN} {
+    header Strict-Transport-Security "max-age=31536000"
+    reverse_proxy web:8080 {
+        # Caddy faces the internet directly: ignore client-supplied addresses.
+        header_up X-Forwarded-For {remote_host}
+    }
+}

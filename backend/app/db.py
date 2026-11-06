@@ -14,8 +14,10 @@ pool = ConnectionPool(
     DATABASE_URL,
     min_size=1,
     max_size=10,
+    timeout=10,
+    max_waiting=50,
     open=False,
-    kwargs={"prepare_threshold": None},
+    kwargs={"prepare_threshold": None, "connect_timeout": 5},
 )
 
 
