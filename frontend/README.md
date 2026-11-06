@@ -17,7 +17,7 @@ npm run dev
 ```
 
 Open http://localhost:5173. There is no sign-up screen: create an account with
-`POST /auth/register` (e.g. from http://localhost:8000/docs), then log in.
+`python -m scripts.create_user you@example.com` (run from `backend/`), then log in.
 
 | Variable | Default | Meaning |
 | -------- | ------- | ------- |

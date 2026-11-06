@@ -9,8 +9,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react(), tailwindcss()],
     server: {
-      // The backend has no CORS middleware, so in dev the browser talks to Vite on the
-      // same origin and Vite forwards /api/* to FastAPI.
+      // Development proxy. Production uses the Nginx /api/ proxy instead.
       proxy: {
         "/api": {
           target: proxyTarget,
