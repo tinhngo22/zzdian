@@ -5,12 +5,15 @@ from app.db import get_conn
 INSERT_SQL = """
 INSERT INTO word_characters (word_id, position, character_id)
 VALUES (%s, %s, %s)
+ON CONFLICT (word_id, position) DO UPDATE SET character_id = EXCLUDED.character_id
 """
 
 
 def main():
     with get_conn() as conn:
         char_ids = {row[0] for row in conn.execute("SELECT id FROM characters")}
+        if not char_ids:
+            raise SystemExit("No characters loaded. Run scripts.import_characters first.")
 
         rows = []
         skipped = Counter()

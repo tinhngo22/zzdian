@@ -23,6 +23,9 @@ ON CONFLICT (id) DO UPDATE SET
 COMPONENT_SQL = """
 INSERT INTO character_components (character_id, position, component_id, role)
 VALUES (%s, %s, %s, %s)
+ON CONFLICT (character_id, position) DO UPDATE SET
+    component_id = EXCLUDED.component_id,
+    role = EXCLUDED.role
 """
 
 
@@ -82,6 +85,8 @@ def main():
         ):
             glyphs.update(ch for ch in simplified + traditional if is_han(ch))
         print(f"{len(glyphs)} distinct characters appear in words")
+        if not glyphs:
+            raise SystemExit("No dictionary characters found. Run scripts.import_words before scripts.import_characters.")
 
         # BFS, extract components from word list first, then components extracted from those words
         components: dict[str, list[tuple[int, str, str]]] = {}
@@ -116,7 +121,6 @@ def main():
         # write to the database
         with conn.cursor() as cur:
             cur.executemany(CHAR_SQL, char_rows)
-            conn.commit()
         component_rows = [
             (ord(glyph), position, ord(part), role)
             for glyph, parts in components.items()

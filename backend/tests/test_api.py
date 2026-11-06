@@ -137,6 +137,22 @@ def test_password_limit(api):
     assert c.post("/auth/login", json={"email": email, "password": "x" * 129}).status_code == 422
 
 
+def test_empty_reference_data_is_rejected(api, monkeypatch):
+    from scripts import check_reference_data, import_characters, build_word_characters
+
+    _, db, _, _, _, _ = api
+    for script in [check_reference_data, import_characters, build_word_characters]:
+        monkeypatch.setattr(script, "get_conn", lambda: db)
+    monkeypatch.setattr(import_characters, "load_unihan", lambda _: {})
+    monkeypatch.setattr(import_characters, "load_mmah", lambda: {})
+    with pytest.raises(SystemExit, match="Reference data incomplete"):
+        check_reference_data.main()
+    with pytest.raises(SystemExit, match="import_words"):
+        import_characters.main()
+    with pytest.raises(SystemExit, match="import_characters"):
+        build_word_characters.main()
+
+
 def test_migrations_are_repeatable_and_token_version_can_be_downgraded(api):
     _, db, _, _, _, config = api
     command.upgrade(config, "head")
