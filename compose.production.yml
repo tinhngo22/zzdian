@@ -1,6 +1,6 @@
 # Standalone production stack; do not merge with development docker-compose.yml.
 x-api-environment: &api-environment
-  DATABASE_URL: postgresql://hanzi:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@db:5432/hanzi
+  DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL}
   JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
   CORS_ORIGINS: ""
 
@@ -15,9 +15,9 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: hanzi
+      POSTGRES_USER: zzdian
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
-      POSTGRES_DB: hanzi
+      POSTGRES_DB: zzdian
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks: [database]
@@ -47,7 +47,13 @@ services:
         condition: service_completed_successfully
     networks: [database, application]
     healthcheck:
-      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/db', timeout=3)"]
+      test:
+        [
+          CMD,
+          python,
+          -c,
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/db', timeout=3)",
+        ]
       interval: 15s
       timeout: 5s
       start_period: 15s
